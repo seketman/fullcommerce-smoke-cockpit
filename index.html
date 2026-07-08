@@ -190,6 +190,11 @@
 
   .mini { padding:2px 7px; font-size:12px; border-radius:6px; line-height:1; }
   #whoami.unset { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+  .drag-handle { color:var(--ink-3); cursor:grab; user-select:none; font-size:14px; line-height:1; padding-right:2px; }
+  .case[draggable="true"] .case-row { cursor:grab; }
+  .case.dragging { opacity:.45; }
+  .case.drop-before { box-shadow: inset 0 3px 0 0 var(--accent); }
+  .case.drop-after  { box-shadow: inset 0 -3px 0 0 var(--accent); }
 
   .auth { position:fixed; inset:0; background:var(--ground); display:flex; align-items:center; justify-content:center; z-index:100; padding:24px; }
   .auth[hidden] { display:none; }
@@ -516,8 +521,9 @@ async function loadCases() {
     CASES = data.map(caseFromRow);
   }
   if (!casesChannel) {
+    let t = null;
     casesChannel = sb.channel("cases")
-      .on("postgres_changes", { event:"*", schema:"public", table:"cases" }, async () => { await reloadCatalog(); })
+      .on("postgres_changes", { event:"*", schema:"public", table:"cases" }, () => { clearTimeout(t); t = setTimeout(reloadCatalog, 250); })
       .subscribe();
   }
 }
@@ -545,6 +551,21 @@ function removeCase(id) {
   if (CLOUD) deleteCaseCloud(id); else persistCasesLocal();
   renderAll();
   logActivity("case_del", id, "borró caso " + id);
+}
+function reorderCase(draggedId, targetId, placeAfter) {
+  const dragged = caseById(draggedId), target = caseById(targetId);
+  if (!dragged || !target || draggedId === targetId) return;
+  if (bucketOf(dragged) !== bucketOf(target)) return;      // solo dentro del mismo grupo
+  CASES = CASES.filter(c => c.id !== draggedId);
+  let ti = CASES.findIndex(c => c.id === targetId);
+  if (placeAfter) ti += 1;
+  CASES.splice(ti, 0, dragged);
+  const changed = [];
+  CASES.forEach((c, i) => { if (c.sort !== i) { c.sort = i; changed.push({ id: c.id, sort: i }); } });
+  if (CLOUD) { if (changed.length) sb.from("cases").upsert(changed, { onConflict: "id" }).then(()=>{}, ()=>toast("No se pudo guardar el orden")); }
+  else persistCasesLocal();
+  renderAll();
+  logActivity("reorder", draggedId, "reordenó " + draggedId);
 }
 
 /* ============================================================ SUMMARY ============================================================ */
@@ -597,8 +618,9 @@ function caseCardHTML(c) {
     ? st.evidence.map((e,i)=>`<div class="ev-item"><div class="ev-meta"><time>${esc(e.time||"")}</time>${e.by?`<span class="who">· ${esc(e.by)}</span>`:""}<button class="ev-del" data-del="${i}" data-id="${c.id}" title="Borrar evidencia">✕</button></div>${e.text?`<p>${esc(e.text)}</p>`:""}${e.img?`<img src="${esc(e.img)}" alt="Evidencia" data-zoom />`:""}</div>`).join("")
     : `<div class="empty-ev">Sin evidencia registrada.</div>`;
   const statusBtns = Object.entries(RUN).map(([k,v])=>`<button class="s-${k}" data-setstatus="${k}" data-id="${c.id}" aria-pressed="${st.status===k}">${v.label}</button>`).join("");
-  return `<details class="case ${c.flag?"flag":""}" data-id="${c.id}">
+  return `<details class="case ${c.flag?"flag":""}" data-id="${c.id}"${editMode?' draggable="true"':''}>
     <summary class="case-row">
+      ${editMode?'<span class="drag-handle" title="Arrastrar para reordenar dentro del grupo">⠿</span>':''}
       <span class="id">${esc(c.id)}</span>
       <span class="case-title">${c.flag?'<span class="star">★</span>':""}${esc(c.title)}</span>
       <span class="modtag">${esc(c.mod)}</span>
@@ -737,6 +759,44 @@ document.addEventListener("click", e => {
   if (e.target.id==="lightbox"||e.target.id==="lightbox-img") $("#lightbox").classList.remove("on");
 });
 $("#search").addEventListener("input", e => { filters.q=e.target.value; renderList(); });
+
+/* ---- reordenar por drag & drop (solo en modo edición, dentro del grupo) ---- */
+let draggedId = null, draggedBucket = null;
+function clearDropMarkers() { document.querySelectorAll(".drop-before,.drop-after").forEach(c => c.classList.remove("drop-before","drop-after")); }
+document.addEventListener("dragstart", e => {
+  const card = e.target.closest(".case");
+  if (!editMode || !card) return;
+  draggedId = card.dataset.id; draggedBucket = bucketOf(caseById(draggedId));
+  e.dataTransfer.effectAllowed = "move";
+  try { e.dataTransfer.setData("text/plain", draggedId); } catch(_) {}
+  card.classList.add("dragging");
+});
+document.addEventListener("dragover", e => {
+  if (!editMode || !draggedId) return;
+  const card = e.target.closest(".case");
+  if (!card || card.dataset.id === draggedId) return;
+  if (bucketOf(caseById(card.dataset.id)) !== draggedBucket) return;
+  e.preventDefault();
+  const r = card.getBoundingClientRect();
+  const after = (e.clientY - r.top) > r.height / 2;
+  clearDropMarkers();
+  card.classList.add(after ? "drop-after" : "drop-before");
+});
+document.addEventListener("drop", e => {
+  if (!editMode || !draggedId) return;
+  const card = e.target.closest(".case");
+  if (!card || card.dataset.id === draggedId) return;
+  if (bucketOf(caseById(card.dataset.id)) !== draggedBucket) return;
+  e.preventDefault();
+  const r = card.getBoundingClientRect();
+  const after = (e.clientY - r.top) > r.height / 2;
+  reorderCase(draggedId, card.dataset.id, after);
+});
+document.addEventListener("dragend", () => {
+  clearDropMarkers();
+  document.querySelectorAll(".case.dragging").forEach(c => c.classList.remove("dragging"));
+  draggedId = null; draggedBucket = null;
+});
 
 async function addImage(id, file, note) {
   let img;
