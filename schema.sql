@@ -78,11 +78,34 @@ create policy cases_auth_domain on public.cases
   with check ( lower(split_part(auth.jwt()->>'email','@',2)) in ('andreani.com') );
 grant all on public.cases to authenticated;
 
+-- ---- Activity log (append-only audit) -----------------------
+create table if not exists public.activity_log (
+  id      bigint generated always as identity primary key,
+  at      timestamptz not null default now(),
+  actor   text,
+  action  text not null,
+  run_id  text,
+  target  text,
+  detail  text
+);
+create index if not exists activity_log_at_idx on public.activity_log (at desc);
+alter table public.activity_log enable row level security;
+drop policy if exists activity_read   on public.activity_log;
+drop policy if exists activity_insert on public.activity_log;
+create policy activity_read on public.activity_log
+  for select to authenticated
+  using ( lower(split_part(auth.jwt()->>'email','@',2)) in ('andreani.com') );
+create policy activity_insert on public.activity_log
+  for insert to authenticated
+  with check ( lower(split_part(auth.jwt()->>'email','@',2)) in ('andreani.com') );
+grant select, insert on public.activity_log to authenticated;
+
 -- ---- Realtime -----------------------------------------------
 -- Push live changes to every open cockpit. Wrapped so the file is re-runnable.
-do $$ begin alter publication supabase_realtime add table public.runs;      exception when duplicate_object then null; end $$;
-do $$ begin alter publication supabase_realtime add table public.case_runs;  exception when duplicate_object then null; end $$;
-do $$ begin alter publication supabase_realtime add table public.cases;      exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table public.runs;         exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table public.case_runs;     exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table public.cases;         exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table public.activity_log;  exception when duplicate_object then null; end $$;
 
 -- ---- Storage bucket for screenshots -------------------------
 insert into storage.buckets (id, name, public)

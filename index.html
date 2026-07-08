@@ -224,6 +224,14 @@
   .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:20px; }
   .modal-actions .del { margin-right:auto; color:var(--bad); border-color:var(--bad); }
 
+  .log-list { max-height:58vh; overflow:auto; display:grid; gap:2px; margin-top:6px; border-top:1px solid var(--border); padding-top:8px; }
+  .log-row { display:grid; grid-template-columns:130px 190px 1fr; gap:10px; align-items:baseline; padding:6px 8px; border-radius:6px; font-size:13px; }
+  .log-row:nth-child(odd) { background:var(--surface-2); }
+  .log-row time { font-family:var(--mono); font-size:11px; color:var(--ink-2); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .log-row .log-actor { color:var(--ink-2); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .log-row .log-detail { color:var(--ink); }
+  @media (max-width:640px) { .log-row { grid-template-columns:1fr; gap:2px; } }
+
   @media (prefers-reduced-motion:reduce) { * { transition:none !important; animation:none !important; } }
 </style>
 </head>
@@ -240,6 +248,7 @@
       <div class="ctrls">
         <span class="conn wait" id="conn"><i></i><span id="conn-txt">…</span></span>
         <button id="whoami" class="ghost" title="Tu nombre para firmar la evidencia">Soy…</button>
+        <button id="history" class="ghost" title="Ver quién hizo cada cambio">Historial</button>
         <button id="editmode" class="ghost" title="Editar el catálogo de casos (Agregar / Editar / Borrar)">Editar casos</button>
         <button id="newcase" title="Agregar un caso nuevo" hidden>+ Caso</button>
         <button id="newrun" title="Archiva el set actual y arranca uno nuevo con todo en Pendiente">Nuevo set</button>
@@ -328,6 +337,18 @@
         <button type="submit" class="primary">Guardar</button>
       </div>
     </form>
+  </div>
+</div>
+
+<div class="modal" id="logmodal">
+  <div class="modal-card">
+    <h3>Historial de cambios</h3>
+    <p class="hint" id="log-sub">Quién hizo cada cambio, más reciente primero.</p>
+    <div class="log-list" id="log-list"></div>
+    <div class="modal-actions">
+      <button id="log-refresh">Actualizar</button>
+      <button id="log-close" class="primary">Cerrar</button>
+    </div>
   </div>
 </div>
 
@@ -436,6 +457,7 @@ async function cloudInit() {
   state.run = {};
   (rows||[]).forEach(r => state.run[r.case_id] = { status:r.status, evidence:r.evidence||[], updatedAt:fmtIso(r.updated_at), updatedBy:r.updated_by });
   subscribeRealtime(run.id);
+  subscribeLog();
   setConn("live","en vivo");
   renderAll();
 }
@@ -516,11 +538,13 @@ function upsertCase(c, isNew) {
   }
   if (CLOUD) saveCaseCloud(c); else persistCasesLocal();
   renderAll();
+  logActivity("case", c.id, (isNew ? "creó caso " : "editó caso ") + c.id);
 }
 function removeCase(id) {
   CASES = CASES.filter(c => c.id !== id);
   if (CLOUD) deleteCaseCloud(id); else persistCasesLocal();
   renderAll();
+  logActivity("case_del", id, "borró caso " + id);
 }
 
 /* ============================================================ SUMMARY ============================================================ */
@@ -645,6 +669,7 @@ document.addEventListener("click", e => {
   if (t.dataset.setstatus) {
     const cs = caseState(t.dataset.id); cs.status=t.dataset.setstatus; cs.updatedAt=nowStamp(); cs.updatedBy=tester||cs.updatedBy;
     save(t.dataset.id); renderSummaries();
+    logActivity("status", t.dataset.id, t.dataset.id + " → " + RUN[cs.status].label);
     const card = document.querySelector(`.case[data-id="${t.dataset.id}"]`);
     card.querySelectorAll(".statusset button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.setstatus===cs.status));
     const pill = card.querySelector(".run-pill"); pill.className="run-pill p-"+cs.status; pill.textContent=RUN[cs.status].label;
@@ -655,12 +680,14 @@ document.addEventListener("click", e => {
     const id=t.dataset.addnote; const ta=document.querySelector(`textarea[data-note="${id}"]`); const txt=ta.value.trim();
     if (!txt) { toast("Escribí una nota primero"); ta.focus(); return; }
     const cs=caseState(id); cs.evidence.push({ time:nowStamp(), text:txt, by:tester||undefined }); cs.updatedAt=nowStamp(); cs.updatedBy=tester||cs.updatedBy;
-    ta.value=""; save(id); rebuildCard(id); renderSummaries(); return;
+    ta.value=""; save(id); rebuildCard(id); renderSummaries();
+    logActivity("evidence", id, "nota en " + id); return;
   }
   if (t.dataset.addimg) { document.querySelector(`input[data-imgfile="${t.dataset.addimg}"]`).click(); return; }
   if (t.dataset.del !== undefined) {
     const cs=caseState(t.dataset.id); cs.evidence.splice(Number(t.dataset.del),1); cs.updatedAt=nowStamp();
-    save(t.dataset.id); rebuildCard(t.dataset.id); return;
+    save(t.dataset.id); rebuildCard(t.dataset.id);
+    logActivity("evidence_del", t.dataset.id, "borró evidencia en " + t.dataset.id); return;
   }
 
   if (t.dataset.editcase) { e.preventDefault(); openEditor(caseById(t.dataset.editcase)); return; }
@@ -673,6 +700,9 @@ document.addEventListener("click", e => {
   if (t.id==="newrun") newRun();
   if (t.id==="export") exportRun();
   if (t.id==="import") $("#importfile").click();
+  if (t.id==="history") openLog();
+  if (t.id==="log-close") closeLog();
+  if (t.id==="log-refresh") loadLog();
   if (t.id==="connect") configPrompt();
   if (t.id==="whoami") { if (CLOUD) logout(); else whoamiPrompt(); }
   if (t.id==="theme") toggleTheme();
@@ -723,6 +753,7 @@ async function addImage(id, file, note) {
   cs.evidence.push({ time:nowStamp(), text:note||"", img, by:tester||undefined });
   cs.updatedAt = nowStamp(); cs.updatedBy = tester||cs.updatedBy;
   save(id); rebuildCard(id); renderSummaries();
+  logActivity("evidence", id, "captura en " + id);
 }
 
 /* ============================================================ RUN CONTROLS ============================================================ */
@@ -746,6 +777,7 @@ async function newRun() {
   } else {
     state = freshRun(); persistLocal(); filters.impl=null; filters.run=null; renderAll();
   }
+  logActivity("new_run", state.runId, "inició un nuevo set");
   toast("Nuevo set iniciado");
 }
 
@@ -864,6 +896,38 @@ if (CLOUD) {
   $("#auth-back").addEventListener("click", authBack);
   $("#auth-email").addEventListener("keydown", e => { if (e.key === "Enter") authSend(); });
 }
+
+/* ============================================================ HISTORIAL (activity log) ============================================================ */
+let logChannel = null;
+function logActivity(action, target, detail) {
+  if (!CLOUD) return;
+  sb.from("activity_log").insert({ actor: tester||null, action, run_id: state.runId||null, target: target||null, detail: detail||null }).then(()=>{}, ()=>{});
+}
+function logRowHTML(e) {
+  return `<div class="log-row"><time>${esc(fmtIso(e.at)||"")}</time><span class="log-actor">${esc(e.actor||"—")}</span><span class="log-detail">${esc(e.detail||e.action||"")}</span></div>`;
+}
+async function loadLog() {
+  const list = $("#log-list");
+  if (!CLOUD) { list.innerHTML = `<div class="empty-ev">El historial requiere el modo nube.</div>`; return; }
+  list.innerHTML = `<div class="empty-ev">Cargando…</div>`;
+  const { data, error } = await sb.from("activity_log").select("*").order("at", { ascending:false }).limit(300);
+  if (error) { list.innerHTML = `<div class="empty-ev">No se pudo cargar el historial.</div>`; return; }
+  list.innerHTML = (data && data.length) ? data.map(logRowHTML).join("") : `<div class="empty-ev">Sin actividad registrada.</div>`;
+}
+function openLog() { $("#logmodal").classList.add("on"); loadLog(); }
+function closeLog() { $("#logmodal").classList.remove("on"); }
+function subscribeLog() {
+  if (logChannel) return;
+  logChannel = sb.channel("activity")
+    .on("postgres_changes", { event:"INSERT", schema:"public", table:"activity_log" }, payload => {
+      if (payload.new && $("#logmodal").classList.contains("on")) {
+        const list = $("#log-list");
+        const empty = list.querySelector(".empty-ev"); if (empty) list.innerHTML = "";
+        list.insertAdjacentHTML("afterbegin", logRowHTML(payload.new));
+      }
+    }).subscribe();
+}
+$("#logmodal").addEventListener("click", e => { if (e.target.id==="logmodal") closeLog(); });
 
 /* ============================================================ THEME ============================================================ */
 function toggleTheme() {

@@ -54,7 +54,9 @@ En Supabase:
    *Site URL* y agregala a *Redirect URLs*. Sin esto el link del mail no vuelve.
    `https://seketman.github.io/fullcommerce-smoke-cockpit/`
 3. **SQL Editor**: corré [`migrations/002-auth-email-otp.sql`](./migrations/002-auth-email-otp.sql)
-   → cambia RLS de `anon` a `authenticated` + restringe por dominio.
+   → cambia RLS de `anon` a `authenticated` + restringe por dominio. Y
+   [`migrations/003-activity-log.sql`](./migrations/003-activity-log.sql) → crea el
+   log de auditoría (botón **Historial**).
 4. **Ajustá el dominio** en DOS lugares (mismo valor):
    - `index.html` → `window.SMOKE_ALLOWED_DOMAINS = ["andreani.com"]`
    - el SQL (schema/migration) → `in ('andreani.com')`
