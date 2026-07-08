@@ -341,7 +341,7 @@
       <button class="primary" id="auth-send">Enviar código</button>
     </div>
     <div id="auth-step-code" class="auth-step" hidden>
-      <p class="auth-hint">Te enviamos un código a <b id="auth-email-shown"></b>. Revisá tu correo (o hacé click en el link del mail).</p>
+      <p class="auth-hint">Te enviamos un mail a <b id="auth-email-shown"></b>. Hacé click en el enlace <b>Sign in</b> del correo para entrar. (Si el proyecto tiene SMTP propio con código, podés pegarlo abajo.)</p>
       <input type="text" id="auth-code" inputmode="numeric" autocomplete="one-time-code" placeholder="Código de 6 dígitos" />
       <div class="auth-actions">
         <button id="auth-back">Cambiar email</button>
@@ -849,7 +849,7 @@ async function authSend() {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { authMsg("Email inválido"); return; }
   if (!domainOk(email)) { authMsg("Usá tu email corporativo (" + ALLOWED_DOMAINS.map(d => "@"+d).join(", ") + ")"); return; }
   authMsg("Enviando…");
-  const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+  const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname } });
   if (error) { authMsg(error.message); return; }
   pendingEmail = email; $("#auth-email-shown").textContent = email;
   $("#auth-step-email").hidden = true; $("#auth-step-code").hidden = false; authMsg(""); $("#auth-code").focus();

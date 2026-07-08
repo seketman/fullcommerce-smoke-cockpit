@@ -44,24 +44,27 @@ La URL queda en `https://customer-experience.github.io/fullcommerce-smoke-cockpi
 
 > Si querés que la página no sea pública, usá un repo **privado** con Pages (requiere plan de la organización).
 
-### 4. Configurar el login (Email OTP)
-El acceso es por **email con código** (OTP), restringido a un dominio corporativo.
+### 4. Configurar el login (Email → link mágico)
+El acceso es por **email**, restringido a un dominio corporativo. El mail trae un
+enlace **Sign in** que devuelve a la página ya logueado (no hace falta código).
 
 En Supabase:
 1. **Authentication → Providers → Email**: habilitado (viene por defecto).
-2. **Authentication → Email Templates → Magic Link**: agregá `{{ .Token }}` al cuerpo
-   para que el mail muestre el **código de 6 dígitos**. (Si no lo hacés, el mail trae
-   un link — también funciona: al clickearlo vuelve logueado.)
-3. **Authentication → URL Configuration**: poné la URL de Pages como *Site URL* y
-   agregala a *Redirect URLs* (necesario si se usa el link).
-4. **SQL Editor**: corré [`migrations/002-auth-email-otp.sql`](./migrations/002-auth-email-otp.sql)
+2. **Authentication → URL Configuration** (clave): poné la URL de Pages como
+   *Site URL* y agregala a *Redirect URLs*. Sin esto el link del mail no vuelve.
+   `https://seketman.github.io/fullcommerce-smoke-cockpit/`
+3. **SQL Editor**: corré [`migrations/002-auth-email-otp.sql`](./migrations/002-auth-email-otp.sql)
    → cambia RLS de `anon` a `authenticated` + restringe por dominio.
-5. **Ajustá el dominio** en DOS lugares (mismo valor):
+4. **Ajustá el dominio** en DOS lugares (mismo valor):
    - `index.html` → `window.SMOKE_ALLOWED_DOMAINS = ["andreani.com"]`
    - el SQL (schema/migration) → `in ('andreani.com')`
 
-> **SMTP:** el mail integrado de Supabase tiene límite bajo (~pocos por hora). Para un
-> equipo chico alcanza; si no, configurá SMTP propio en Authentication → Emails.
+> **Código de 6 dígitos (OTP) en vez de link:** requiere **SMTP propio** — el
+> template del mail solo se puede editar (agregar `{{ .Token }}`) con SMTP custom.
+> La app ya soporta pegar el código; sin SMTP, usá el link.
+>
+> **Límite:** el SMTP integrado de Supabase manda pocos mails/hora. Para el equipo
+> alcanza; si molesta, configurá SMTP propio (y ahí sí podés habilitar el código).
 
 ### 5. Usar
 - Cada persona entra con su **email corporativo** → recibe un código → verifica.
