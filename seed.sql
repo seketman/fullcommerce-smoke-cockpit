@@ -46,3 +46,38 @@ values
   ('WK-SYNC-05', array['otros'], 'Worker', 'impl', 'Update de LastShipment (envío más reciente)', 'UpdateLastShipment (condicional)', 'Existe SellerMarketplace activo con LastShipment viejo.', 'Tracking con envío más reciente / más viejo', '["Envío más nuevo → correr iteración.","Repetir con envío más viejo."]'::jsonb, '["Más nuevo → UPDATE condicional de LastShipment → Updated; si Name vacío, SellerNameEnricher lo completa (best-effort).","Más viejo → SkippedOlderShipment (no actualiza)."]'::jsonb, null, false, 36),
   ('WK-SYNC-06', array['otros'], 'Worker', 'impl', 'Fallback a PendingSellerMarketplace', 'UpsertPendingSellerMarketplace', 'Seller no resoluble o relación ya activa.', '—', '["Forzar un seller no resoluble (corporate sin CL) o relación ya activa.","Correr iteración."]'::jsonb, '["Upsert en PendingSellerMarketplace (insert o update de LastShipment) → QueuedToPending.","No rompe el resto del procesamiento."]'::jsonb, null, false, 37)
 on conflict (id) do nothing;
+
+-- ---- Métricas (transaccional-client-metrics-api) ----
+-- En desarrollo. Marcadas 'stub' (no implementado); pasar a 'nofront' cuando el
+-- endpoint esté deployado y el MF deje de mockear.
+insert into public.cases
+  (id, groups, module, impl, title, feature, precond, data, steps, expected, warn, flag, sort)
+values
+  ('API-MET-01', array['otros'], 'Metrics API', 'stub',
+   'Métricas Marketplace — envíos por seller por rango de fechas',
+   'transaccional-client-metrics-api · endpoint marketplace',
+   'Usuario marketplace · rango de fechas (desde/hasta).',
+   'GET envíos por seller en el rango; discriminado por domicilio y retiro por mostrador',
+   '["Llamar al endpoint con un rango de fechas.","Verificar el desglose por tipo de envío."]'::jsonb,
+   '["Devuelve, por seller, la cantidad de envíos en el rango.","Cada cantidad discriminada en envío a domicilio y retiro por mostrador."]'::jsonb,
+   'En desarrollo en transaccional-client-metrics-api (repo aparte). Cambiar a Sin frontend cuando el endpoint esté deployado.',
+   false, 38),
+  ('API-MET-02', array['otros'], 'Metrics API', 'stub',
+   'Métricas Marketplace — top sellers por rango de fecha',
+   'transaccional-client-metrics-api · endpoint marketplace',
+   'Usuario marketplace · rango de fechas (desde/hasta).',
+   'GET ranking de sellers por cantidad de envíos en el rango (sin desglose)',
+   '["Llamar al endpoint con un rango de fechas.","Verificar el orden por cantidad de envíos."]'::jsonb,
+   '["Devuelve el ranking de sellers por cantidad de envíos en el rango.","Solo cantidad total, sin discriminar por tipo de envío."]'::jsonb,
+   'En desarrollo en transaccional-client-metrics-api (repo aparte). Cambiar a Sin frontend cuando el endpoint esté deployado.',
+   false, 39),
+  ('API-MET-03', array['otros'], 'Metrics API', 'stub',
+   'Métricas Seller — envíos por mes (domicilio vs retiro por mostrador)',
+   'transaccional-client-metrics-api · endpoint seller',
+   'Usuario seller.',
+   'GET cantidad de envíos por mes; discriminado por envío a domicilio y retiro por mostrador',
+   '["Llamar al endpoint del seller.","Verificar el desglose mensual por tipo de envío."]'::jsonb,
+   '["Devuelve la cantidad de envíos por mes.","Cada mes discriminado en envío a domicilio y retiro por mostrador."]'::jsonb,
+   'En desarrollo en transaccional-client-metrics-api (repo aparte). Cambiar a Sin frontend cuando el endpoint esté deployado.',
+   false, 40)
+on conflict (id) do nothing;
