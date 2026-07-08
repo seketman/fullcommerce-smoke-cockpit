@@ -25,25 +25,27 @@ create table if not exists public.case_runs (
 create index if not exists case_runs_run_idx on public.case_runs (run_id);
 
 -- ---- Row Level Security -------------------------------------
--- Internal team tool. The anon key is public on the GitHub Pages site,
--- so ANYONE with the page URL + key can read/write these two tables.
--- Acceptable for non-sensitive test-evidence data. To lock it down,
--- switch to Supabase Auth and replace the policies with `to authenticated`.
+-- Auth por Email OTP: solo usuarios logueados con email del dominio permitido
+-- pueden leer/escribir. ⚠️ AJUSTÁ el dominio ('andreani.com') al real; el mismo
+-- valor va en index.html → window.SMOKE_ALLOWED_DOMAINS.
 
 alter table public.runs      enable row level security;
 alter table public.case_runs enable row level security;
 
-drop policy if exists runs_anon_all on public.runs;
-create policy runs_anon_all on public.runs
-  for all to anon using (true) with check (true);
+drop policy if exists runs_auth_domain on public.runs;
+create policy runs_auth_domain on public.runs
+  for all to authenticated
+  using      ( lower(split_part(auth.jwt()->>'email','@',2)) in ('andreani.com') )
+  with check ( lower(split_part(auth.jwt()->>'email','@',2)) in ('andreani.com') );
 
-drop policy if exists case_runs_anon_all on public.case_runs;
-create policy case_runs_anon_all on public.case_runs
-  for all to anon using (true) with check (true);
+drop policy if exists case_runs_auth_domain on public.case_runs;
+create policy case_runs_auth_domain on public.case_runs
+  for all to authenticated
+  using      ( lower(split_part(auth.jwt()->>'email','@',2)) in ('andreani.com') )
+  with check ( lower(split_part(auth.jwt()->>'email','@',2)) in ('andreani.com') );
 
--- Expose to the Data (REST) API for the anon role.
-grant all on public.runs      to anon;
-grant all on public.case_runs to anon;
+grant all on public.runs      to authenticated;
+grant all on public.case_runs to authenticated;
 
 -- ---- Test-case catalog (editable from the app) -------------
 -- The 31 smoke-test cases live here so the team can Add / Update / Remove
@@ -69,10 +71,12 @@ create table if not exists public.cases (
 );
 
 alter table public.cases enable row level security;
-drop policy if exists cases_anon_all on public.cases;
-create policy cases_anon_all on public.cases
-  for all to anon using (true) with check (true);
-grant all on public.cases to anon;
+drop policy if exists cases_auth_domain on public.cases;
+create policy cases_auth_domain on public.cases
+  for all to authenticated
+  using      ( lower(split_part(auth.jwt()->>'email','@',2)) in ('andreani.com') )
+  with check ( lower(split_part(auth.jwt()->>'email','@',2)) in ('andreani.com') );
+grant all on public.cases to authenticated;
 
 -- ---- Realtime -----------------------------------------------
 -- Push live changes to every open cockpit. Wrapped so the file is re-runnable.
@@ -85,10 +89,12 @@ insert into storage.buckets (id, name, public)
 values ('evidence', 'evidence', true)
 on conflict (id) do nothing;
 
-drop policy if exists evidence_anon_read on storage.objects;
-create policy evidence_anon_read on storage.objects
-  for select to anon using (bucket_id = 'evidence');
+drop policy if exists evidence_auth_read on storage.objects;
+create policy evidence_auth_read on storage.objects
+  for select to authenticated
+  using ( bucket_id = 'evidence' and lower(split_part(auth.jwt()->>'email','@',2)) in ('andreani.com') );
 
-drop policy if exists evidence_anon_write on storage.objects;
-create policy evidence_anon_write on storage.objects
-  for insert to anon with check (bucket_id = 'evidence');
+drop policy if exists evidence_auth_write on storage.objects;
+create policy evidence_auth_write on storage.objects
+  for insert to authenticated
+  with check ( bucket_id = 'evidence' and lower(split_part(auth.jwt()->>'email','@',2)) in ('andreani.com') );

@@ -44,28 +44,49 @@ La URL queda en `https://customer-experience.github.io/fullcommerce-smoke-cockpi
 
 > Si querés que la página no sea pública, usá un repo **privado** con Pages (requiere plan de la organización).
 
-### 4. Usar
-- Cada tester hace click en **Soy…** y pone su nombre (firma estados y evidencia).
+### 4. Configurar el login (Email OTP)
+El acceso es por **email con código** (OTP), restringido a un dominio corporativo.
+
+En Supabase:
+1. **Authentication → Providers → Email**: habilitado (viene por defecto).
+2. **Authentication → Email Templates → Magic Link**: agregá `{{ .Token }}` al cuerpo
+   para que el mail muestre el **código de 6 dígitos**. (Si no lo hacés, el mail trae
+   un link — también funciona: al clickearlo vuelve logueado.)
+3. **Authentication → URL Configuration**: poné la URL de Pages como *Site URL* y
+   agregala a *Redirect URLs* (necesario si se usa el link).
+4. **SQL Editor**: corré [`migrations/002-auth-email-otp.sql`](./migrations/002-auth-email-otp.sql)
+   → cambia RLS de `anon` a `authenticated` + restringe por dominio.
+5. **Ajustá el dominio** en DOS lugares (mismo valor):
+   - `index.html` → `window.SMOKE_ALLOWED_DOMAINS = ["andreani.com"]`
+   - el SQL (schema/migration) → `in ('andreani.com')`
+
+> **SMTP:** el mail integrado de Supabase tiene límite bajo (~pocos por hora). Para un
+> equipo chico alcanza; si no, configurá SMTP propio en Authentication → Emails.
+
+### 5. Usar
+- Cada persona entra con su **email corporativo** → recibe un código → verifica.
+  La identidad queda firmada automáticamente (`updated_by` = email).
 - Marca resultado por caso (OK / Falla / Bloqueado / No testeable) y agrega
   **notas con hora** y **capturas** (subir o pegar con `Ctrl+V`).
-- Al día siguiente: **Nuevo set** archiva el actual (ofrece exportar JSON) y
-  resetea todo a Pendiente. El cambio se propaga a todos en vivo.
+- **Nuevo set** archiva el actual (ofrece exportar JSON) y resetea a Pendiente.
+- **Salir** cierra la sesión.
 
 ---
 
-## Seguridad — leé esto
+## Seguridad
 
-La **anon key es pública** en la página de GitHub Pages. Con las políticas de
-`schema.sql`, cualquiera que tenga la URL de la página + la key puede **leer y
-escribir** las tablas `runs` y `case_runs`. Es aceptable para datos de evidencia
-de pruebas (no sensibles) de un ambiente de test.
-
-Para restringir el acceso:
-- Usá un **repo privado** con Pages, **o**
-- Activá **Supabase Auth** (magic link a los mails del equipo) y reemplazá en
-  `schema.sql` las políticas `to anon` por `to authenticated`.
-
-No pongas nunca la **service_role key** en `index.html` — esa sí es secreta.
+- Acceso por **Supabase Auth (Email OTP)** restringido por dominio. Solo usuarios
+  logueados con email del dominio permitido leen/escriben (RLS `to authenticated` +
+  chequeo de dominio sobre `auth.jwt()->>'email'`). El repo puede ser público sin
+  exponer la DB.
+- La **publishable key** en `index.html` es browser-safe (no da acceso sin sesión).
+- **Nunca** pongas la **service_role / secret key** en `index.html` — esa sí es secreta.
+- **Capturas:** el bucket `evidence` es público (las URLs son difíciles de adivinar
+  pero no están protegidas por RLS en lectura directa). Si necesitás cerrarlo,
+  pasá el bucket a privado + URLs firmadas.
+- **Migrar a Microsoft/Azure AD** (SSO solo Andreani): registrar app en el tenant de
+  Andreani y usar `signInWithOAuth({ provider: 'azure' })`. El resto del código y las
+  RLS por dominio quedan igual.
 
 ---
 
