@@ -199,7 +199,6 @@
   .auth-card h2 { font-size:16px; }
   .auth-step { display:grid; gap:10px; }
   .auth-card input { width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--border-strong); background:var(--surface); color:var(--ink); font-family:var(--sans); font-size:14px; }
-  .auth-card input#auth-code { font-family:var(--mono); letter-spacing:.15em; text-align:center; font-size:18px; }
   .auth-actions { display:flex; gap:8px; }
   .auth-actions .primary { margin-left:auto; }
   .auth-hint { font-size:12px; color:var(--ink-2); margin:0; }
@@ -338,14 +337,12 @@
     <h2>Ingresá con tu email corporativo</h2>
     <div id="auth-step-email" class="auth-step">
       <input type="email" id="auth-email" placeholder="nombre@andreani.com" autocomplete="email" />
-      <button class="primary" id="auth-send">Enviar código</button>
+      <button class="primary" id="auth-send">Enviar link</button>
     </div>
     <div id="auth-step-code" class="auth-step" hidden>
-      <p class="auth-hint">Te enviamos un mail a <b id="auth-email-shown"></b>. Hacé click en el enlace <b>Sign in</b> del correo para entrar. (Si el proyecto tiene SMTP propio con código, podés pegarlo abajo.)</p>
-      <input type="text" id="auth-code" inputmode="numeric" autocomplete="one-time-code" placeholder="Código de 6 dígitos" />
+      <p class="auth-hint">Te enviamos un mail a <b id="auth-email-shown"></b>. Abrilo y hacé click en <b>Sign in</b> para entrar.</p>
       <div class="auth-actions">
-        <button id="auth-back">Cambiar email</button>
-        <button class="primary" id="auth-verify">Verificar</button>
+        <button id="auth-back">Usar otro email</button>
       </div>
     </div>
     <p class="auth-msg" id="auth-msg"></p>
@@ -852,24 +849,14 @@ async function authSend() {
   const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname } });
   if (error) { authMsg(error.message); return; }
   pendingEmail = email; $("#auth-email-shown").textContent = email;
-  $("#auth-step-email").hidden = true; $("#auth-step-code").hidden = false; authMsg(""); $("#auth-code").focus();
-}
-async function authVerify() {
-  const token = $("#auth-code").value.trim();
-  if (!token) { authMsg("Ingresá el código"); return; }
-  authMsg("Verificando…");
-  const { error } = await sb.auth.verifyOtp({ email: pendingEmail, token, type: "email" });
-  if (error) { authMsg("Código inválido o vencido"); return; }
-  // onAuthStateChange → onSignedIn se encarga del resto
+  $("#auth-step-email").hidden = true; $("#auth-step-code").hidden = false; authMsg("");
 }
 function authBack() { $("#auth-step-code").hidden = true; $("#auth-step-email").hidden = false; authMsg(""); }
 
 if (CLOUD) {
   $("#auth-send").addEventListener("click", authSend);
-  $("#auth-verify").addEventListener("click", authVerify);
   $("#auth-back").addEventListener("click", authBack);
   $("#auth-email").addEventListener("keydown", e => { if (e.key === "Enter") authSend(); });
-  $("#auth-code").addEventListener("keydown", e => { if (e.key === "Enter") authVerify(); });
 }
 
 /* ============================================================ THEME ============================================================ */
