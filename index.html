@@ -186,6 +186,7 @@
   .toast.on { opacity:1; transform:translateX(-50%) translateY(0); }
 
   .mini { padding:2px 7px; font-size:12px; border-radius:6px; line-height:1; }
+  #whoami.unset { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
   #editmode[aria-pressed="true"] { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
 
   .modal { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:flex-start; justify-content:center; z-index:92; padding:40px 16px; overflow:auto; }
@@ -592,6 +593,10 @@ function rebuildCard(id) {
 document.addEventListener("click", e => {
   const t = e.target.closest("button"); if (!t) return;
 
+  // Sin identidad no se permite ningún cambio (estado, evidencia, edición de casos).
+  const MUTATORS = ["setstatus","addnote","addimg","del","editcase","delcase"];
+  if ((MUTATORS.some(k => t.dataset[k] !== undefined) || ["newcase","newrun","editor-del"].includes(t.id)) && !ensureTester()) return;
+
   if (t.dataset.group) { filters.group=t.dataset.group; renderAll(); return; }
   if (t.dataset.implfilter) { filters.impl = filters.impl===t.dataset.implfilter?null:t.dataset.implfilter; renderAll(); return; }
   if (t.dataset.runfilter) { filters.run = filters.run===t.dataset.runfilter?null:t.dataset.runfilter; renderAll(); return; }
@@ -652,6 +657,7 @@ document.addEventListener("paste", e => {
   if (!ta || ta.tagName!=="TEXTAREA" || !ta.dataset.note) return;
   const item = [...(e.clipboardData&&e.clipboardData.items||[])].find(i=>i.type.startsWith("image/"));
   if (!item) return; e.preventDefault();
+  if (!ensureTester()) return;
   addImage(ta.dataset.note, item.getAsFile(), ta.value.trim()).then(()=>{ ta.value=""; toast("Captura pegada"); });
 });
 
@@ -713,12 +719,25 @@ function configPrompt() {
   try { localStorage.setItem("fc-smoke-cfg", JSON.stringify({ url:url.trim(), anonKey:key.trim() })); } catch(e){}
   toast("Conexión guardada — recargando…"); setTimeout(()=>location.reload(), 700);
 }
+function updateWhoami() {
+  const b = $("#whoami");
+  b.textContent = tester ? "Soy: "+tester : "Soy…";
+  b.classList.toggle("unset", !tester);
+}
 function whoamiPrompt() {
   const v = prompt("Tu nombre (firma la evidencia y los estados):", tester||"");
   if (v===null) return;
   tester = v.trim(); try { localStorage.setItem("fc-smoke-tester", tester); } catch(e){}
-  $("#whoami").textContent = tester ? "Soy: "+tester : "Soy…";
+  updateWhoami();
   toast(tester?("Hola, "+tester):"Nombre borrado");
+}
+/* Todo cambio (estado, evidencia, edición de casos) exige identidad.
+   Si no la hay, se pide en el momento; si la completa, la acción sigue. */
+function ensureTester() {
+  if (tester) return true;
+  toast("Primero identificate con “Soy…”");
+  whoamiPrompt();
+  return !!tester;
 }
 
 /* ============================================================ CASE EDITOR ============================================================ */
@@ -744,6 +763,7 @@ function closeEditor() { document.getElementById("editor").classList.remove("on"
 function parseLines(v) { return v.split("\n").map(s=>s.trim()).filter(Boolean); }
 function submitEditor(e) {
   e.preventDefault();
+  if (!ensureTester()) return;
   const f = e.target; const el = n => f.elements[n];
   const id = el("id").value.trim();
   if (!id) { toast("El ID es obligatorio"); return; }
@@ -771,7 +791,7 @@ function toggleTheme() {
 (function initTheme(){ try { const s=localStorage.getItem("fc-smoke-theme"); if (s) document.documentElement.setAttribute("data-theme", s); } catch(e){} })();
 
 /* ============================================================ INIT ============================================================ */
-$("#whoami").textContent = tester ? "Soy: "+tester : "Soy…";
+updateWhoami();
 if (CLOUD) { renderChips(); renderSummaries(); cloudInit(); }
 else {
   setConn("local", window.SMOKE_CONFIG && !window.supabase ? "local (SDK no cargó)" : "local (sin sincronizar)");
