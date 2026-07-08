@@ -367,12 +367,17 @@ function bucketOf(c) {
   return "otros";
 }
 const IMPL = {
-  impl:{label:"Implementado",cls:"impl"}, mock:{label:"Mockeado",cls:"mock"},
-  stub:{label:"No implementado",cls:"stub"}, nofront:{label:"Sin frontend",cls:"nofront"}
+  impl:   { label:"Implementado",    cls:"impl",    desc:"Backend + frontend: funciona end-to-end. Cuenta en el % de desarrollo." },
+  mock:   { label:"Mockeado",        cls:"mock",    desc:"La UI existe pero muestra datos falsos (hardcodeados). No prueba integración real." },
+  stub:   { label:"No implementado", cls:"stub",    desc:"No construido: código ausente, comentado o pantalla stub." },
+  nofront:{ label:"Sin frontend",    cls:"nofront", desc:"Backend listo, pero ningún frontend lo consume aún. Testeable solo por API directa." }
 };
 const RUN = {
-  pending:{label:"Pendiente",cls:"pending"}, pass:{label:"OK",cls:"pass"}, fail:{label:"Falla",cls:"fail"},
-  blocked:{label:"Bloqueado",cls:"blocked"}, na:{label:"No testeable",cls:"na"}
+  pending:{ label:"Pendiente",    cls:"pending", desc:"Todavía no se ejecutó." },
+  pass:   { label:"OK",           cls:"pass",    desc:"Se ejecutó y la salida coincide con lo esperado." },
+  fail:   { label:"Falla",        cls:"fail",    desc:"Se ejecutó y la salida no coincide con lo esperado." },
+  blocked:{ label:"Bloqueado",    cls:"blocked", desc:"No se pudo ejecutar (dependencia caída, dato faltante, permisos)." },
+  na:     { label:"No testeable", cls:"na",      desc:"No testeable por diseño (el caso es mock o stub)." }
 };
 
 /* El catálogo vive en Supabase (tabla cases). Seed inicial: seed.sql */
@@ -526,13 +531,13 @@ function renderSummaries() {
   $("#dev-pct").textContent = pct(dc.impl,dtot)+"%";
   $("#dev-bar").innerHTML = ["impl","nofront","mock","stub"].map(k => dc[k]?`<span class="c-${k}" style="width:${dc[k]/dtot*100}%"></span>`:"").join("");
   $("#dev-legend").innerHTML = ["impl","nofront","mock","stub"].map(k =>
-    `<button data-implfilter="${k}" aria-pressed="${filters.impl===k}"><i class="swatch c-${k}"></i>${IMPL[k].label} <b>${dc[k]}</b> · ${pct(dc[k],dtot)}%</button>`).join("");
+    `<button data-implfilter="${k}" aria-pressed="${filters.impl===k}" title="${esc(IMPL[k].desc)}"><i class="swatch c-${k}"></i>${IMPL[k].label} <b>${dc[k]}</b> · ${pct(dc[k],dtot)}%</button>`).join("");
 
   const rc = { pending:0,pass:0,fail:0,blocked:0,na:0 }; cs.forEach(c => rc[caseState(c.id).status]++); const rtot = cs.length;
   $("#run-pct").textContent = pct(rtot-rc.pending,rtot)+"%";
   $("#run-bar").innerHTML = ["pass","fail","blocked","na","pending"].map(k => rc[k]?`<span class="c-${k}" style="width:${rc[k]/rtot*100}%"></span>`:"").join("");
   $("#run-legend").innerHTML = ["pass","fail","blocked","na","pending"].map(k =>
-    `<button data-runfilter="${k}" aria-pressed="${filters.run===k}"><i class="swatch c-${k}"></i>${RUN[k].label} <b>${rc[k]}</b> · ${pct(rc[k],rtot)}%</button>`).join("");
+    `<button data-runfilter="${k}" aria-pressed="${filters.run===k}" title="${esc(RUN[k].desc)}"><i class="swatch c-${k}"></i>${RUN[k].label} <b>${rc[k]}</b> · ${pct(rc[k],rtot)}%</button>`).join("");
 
   $("#runtag").textContent = `${state.startedAt||"—"} · ${state.runId||""}`;
 }
@@ -573,8 +578,8 @@ function caseCardHTML(c) {
       <span class="id">${esc(c.id)}</span>
       <span class="case-title">${c.flag?'<span class="star">★</span>':""}${esc(c.title)}</span>
       <span class="modtag">${esc(c.mod)}</span>
-      <span class="badge b-${im.cls}"><i class="swatch c-${im.cls}"></i>${im.label}</span>
-      <span class="run-pill p-${st.status}">${RUN[st.status].label}</span>
+      <span class="badge b-${im.cls}" title="${esc(im.desc)}"><i class="swatch c-${im.cls}"></i>${im.label}</span>
+      <span class="run-pill p-${st.status}" title="${esc(RUN[st.status].desc)}">${RUN[st.status].label}</span>
       ${editMode?`<button class="mini" data-editcase="${c.id}" title="Editar caso">✎</button><button class="mini" data-delcase="${c.id}" title="Borrar caso">🗑</button>`:""}
       <span class="chevron" aria-hidden="true">▶</span>
     </summary>
