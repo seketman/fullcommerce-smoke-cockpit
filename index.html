@@ -1,0 +1,783 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FullCommerce · Smoke Test Cockpit</title>
+
+<script>
+  window.SMOKE_CONFIG = {
+    url: "https://jkykwtgfppjtnejmgvvy.supabase.co",
+    anonKey: "sb_publishable_4SQOUq5r3WYG01-wtgbJ0g_HPNcfwmf"
+  };
+</script>
+<!-- Pin de versión recomendado: cambiá @2 por una versión exacta (ej: @2.58.0). -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+  :root {
+    --ground: #FBF8F7; --surface: #FFFFFF; --surface-2: #F5F0EF;
+    --border: #EBE2E0; --border-strong: #DCD0CE;
+    --ink: #1E1618; --ink-2: #6C5F61; --ink-3: #9A8E8F;
+    --accent: #C8102E; --accent-ink: #FFFFFF; --accent-soft: #FBE9EC;
+    --ok:#1F9D57;--ok-soft:#E4F4EA;--warn:#B7770A;--warn-soft:#FBF0DC;
+    --bad:#CE1B33;--bad-soft:#FBE6E9;--info:#2F6DB0;--info-soft:#E5EEF8;--idle:#8A7E80;--idle-soft:#F0EAE9;
+    --shadow: 0 1px 2px rgba(30,22,24,.04), 0 6px 20px rgba(30,22,24,.05);
+    --radius: 12px; --radius-sm: 8px;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --maxw: 1180px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:#141012;--surface:#1D1719;--surface-2:#251E20;--border:#322A2C;--border-strong:#423739;
+      --ink:#F4EEED;--ink-2:#B6A9AB;--ink-3:#7E7274;--accent:#FF4D66;--accent-ink:#1a0d10;--accent-soft:#33171C;
+      --ok:#40C97E;--ok-soft:#16281E;--warn:#E7A937;--warn-soft:#2C2413;--bad:#FF6274;--bad-soft:#2E181C;
+      --info:#6FA9E6;--info-soft:#152230;--idle:#9C8F91;--idle-soft:#241E20;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --ground:#FBF8F7;--surface:#FFFFFF;--surface-2:#F5F0EF;--border:#EBE2E0;--border-strong:#DCD0CE;
+    --ink:#1E1618;--ink-2:#6C5F61;--ink-3:#9A8E8F;--accent:#C8102E;--accent-ink:#FFFFFF;--accent-soft:#FBE9EC;
+    --ok:#1F9D57;--ok-soft:#E4F4EA;--warn:#B7770A;--warn-soft:#FBF0DC;--bad:#CE1B33;--bad-soft:#FBE6E9;
+    --info:#2F6DB0;--info-soft:#E5EEF8;--idle:#8A7E80;--idle-soft:#F0EAE9;
+    --shadow:0 1px 2px rgba(30,22,24,.04),0 6px 20px rgba(30,22,24,.05);
+  }
+  :root[data-theme="dark"] {
+    --ground:#141012;--surface:#1D1719;--surface-2:#251E20;--border:#322A2C;--border-strong:#423739;
+    --ink:#F4EEED;--ink-2:#B6A9AB;--ink-3:#7E7274;--accent:#FF4D66;--accent-ink:#1a0d10;--accent-soft:#33171C;
+    --ok:#40C97E;--ok-soft:#16281E;--warn:#E7A937;--warn-soft:#2C2413;--bad:#FF6274;--bad-soft:#2E181C;
+    --info:#6FA9E6;--info-soft:#152230;--idle:#9C8F91;--idle-soft:#241E20;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--ground); color:var(--ink); font-family:var(--sans); line-height:1.5; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:var(--maxw); margin:0 auto; padding:0 20px; }
+  h1,h2,h3 { text-wrap:balance; margin:0; }
+
+  header.top { position:sticky; top:0; z-index:40; background:color-mix(in srgb, var(--ground) 88%, transparent); backdrop-filter:blur(10px); border-bottom:1px solid var(--border); }
+  .top-inner { display:flex; align-items:center; gap:16px; padding:12px 0; flex-wrap:wrap; }
+  .brand { display:flex; align-items:baseline; gap:10px; margin-right:auto; }
+  .brand .dot { width:11px; height:11px; border-radius:50%; background:var(--accent); align-self:center; box-shadow:0 0 0 4px var(--accent-soft); }
+  .brand b { font-size:15px; letter-spacing:-.01em; }
+  .brand span { font-family:var(--mono); font-size:11px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.1em; }
+  .ctrls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  button,.btn { font-family:var(--sans); font-size:13px; font-weight:550; border:1px solid var(--border-strong); background:var(--surface); color:var(--ink); padding:7px 12px; border-radius:var(--radius-sm); cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:background .12s,border-color .12s,transform .05s; }
+  button:hover,.btn:hover { background:var(--surface-2); border-color:var(--ink-3); }
+  button:active { transform:translateY(1px); }
+  button.primary { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  button.primary:hover { filter:brightness(1.06); background:var(--accent); }
+  button.ghost { border-color:transparent; background:transparent; }
+  button.ghost:hover { background:var(--surface-2); }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+  .conn { font-family:var(--mono); font-size:11px; font-weight:600; padding:5px 10px; border-radius:20px; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border); }
+  .conn i { width:7px; height:7px; border-radius:50%; }
+  .conn.live { color:var(--ok); background:var(--ok-soft); } .conn.live i { background:var(--ok); }
+  .conn.local { color:var(--idle); background:var(--idle-soft); } .conn.local i { background:var(--idle); }
+  .conn.wait { color:var(--warn); background:var(--warn-soft); } .conn.wait i { background:var(--warn); }
+  .conn.err { color:var(--bad); background:var(--bad-soft); } .conn.err i { background:var(--bad); }
+
+  .tabs { display:flex; gap:4px; padding:10px 0 0; }
+  .tab { border:none; background:transparent; color:var(--ink-2); font-weight:600; font-size:14px; padding:9px 14px; border-radius:8px 8px 0 0; cursor:pointer; position:relative; }
+  .tab[aria-selected="true"] { color:var(--ink); }
+  .tab[aria-selected="true"]::after { content:""; position:absolute; left:12px; right:12px; bottom:-1px; height:2px; background:var(--accent); border-radius:2px; }
+
+  main { padding:22px 0 80px; }
+  .view[hidden] { display:none; }
+
+  .summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:26px 0 8px; }
+  @media (max-width:820px) { .summary-grid { grid-template-columns:1fr; } }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; }
+  .card-head { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:14px; }
+  .card-head h2 { font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-2); font-weight:700; }
+  .headline { display:flex; align-items:baseline; gap:10px; }
+  .headline .big { font-family:var(--mono); font-size:40px; font-weight:600; letter-spacing:-.02em; line-height:1; font-variant-numeric:tabular-nums; }
+  .headline .cap { font-size:12px; color:var(--ink-2); max-width:160px; }
+
+  .segbar { display:flex; height:12px; border-radius:6px; overflow:hidden; margin:16px 0 12px; background:var(--surface-2); }
+  .segbar > span { display:block; height:100%; transition:width .4s ease; }
+  .legend { display:flex; flex-wrap:wrap; gap:8px 14px; }
+  .legend button { border:1px solid var(--border); background:var(--surface); padding:5px 9px 5px 8px; border-radius:20px; font-size:12px; font-weight:550; color:var(--ink-2); gap:7px; }
+  .legend button[aria-pressed="true"] { border-color:var(--ink); color:var(--ink); background:var(--surface-2); }
+  .legend .swatch { width:9px; height:9px; border-radius:3px; }
+  .legend b { font-family:var(--mono); color:var(--ink); font-variant-numeric:tabular-nums; }
+
+  .c-impl{background:var(--ok);}.c-mock{background:var(--warn);}.c-stub{background:var(--bad);}.c-nofront{background:var(--info);}
+  .c-pass{background:var(--ok);}.c-fail{background:var(--bad);}.c-blocked{background:var(--warn);}.c-na{background:var(--info);}.c-pending{background:var(--idle);}
+
+  .filterbar { display:flex; gap:10px; align-items:center; margin:22px 0 14px; flex-wrap:wrap; }
+  .chips { display:flex; gap:6px; flex-wrap:wrap; }
+  .chip { border:1px solid var(--border-strong); background:var(--surface); color:var(--ink-2); padding:6px 12px; border-radius:20px; font-size:13px; font-weight:600; cursor:pointer; }
+  .chip[aria-pressed="true"] { background:var(--ink); color:var(--ground); border-color:var(--ink); }
+  .search { flex:1; min-width:180px; }
+  .search input { width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border-strong); background:var(--surface); color:var(--ink); font-family:var(--sans); font-size:13px; }
+  .active-filter { font-size:12px; color:var(--ink-2); display:flex; align-items:center; gap:8px; }
+  .active-filter button { padding:3px 8px; font-size:11px; }
+
+  .group-head { display:flex; align-items:center; gap:12px; margin:26px 0 10px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+  .group-head h3 { font-size:18px; letter-spacing:-.01em; }
+  .group-head .meta { font-size:12px; color:var(--ink-3); font-family:var(--mono); }
+  .group-head .count { margin-left:auto; font-family:var(--mono); font-size:12px; color:var(--ink-2); }
+
+  .case { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:10px; box-shadow:var(--shadow); overflow:hidden; }
+  .case.flag { border-color:color-mix(in srgb, var(--accent) 45%, var(--border)); }
+  .case-row { display:flex; align-items:center; gap:12px; padding:13px 16px; cursor:pointer; list-style:none; }
+  .case-row::-webkit-details-marker { display:none; }
+  .case-row:hover { background:var(--surface-2); }
+  .id { font-family:var(--mono); font-size:12px; color:var(--ink-2); font-weight:600; white-space:nowrap; }
+  .case-title { font-weight:600; font-size:14px; flex:1; min-width:0; }
+  .case-title .star { color:var(--accent); margin-right:4px; }
+  .badge { font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; white-space:nowrap; display:inline-flex; align-items:center; gap:5px; }
+  .badge .swatch { width:7px; height:7px; border-radius:2px; }
+  .b-impl{background:var(--ok-soft);color:var(--ok);}.b-mock{background:var(--warn-soft);color:var(--warn);}
+  .b-stub{background:var(--bad-soft);color:var(--bad);}.b-nofront{background:var(--info-soft);color:var(--info);}
+  .run-pill { font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; white-space:nowrap; }
+  .p-pass{background:var(--ok-soft);color:var(--ok);}.p-fail{background:var(--bad-soft);color:var(--bad);}
+  .p-blocked{background:var(--warn-soft);color:var(--warn);}.p-na{background:var(--info-soft);color:var(--info);}.p-pending{background:var(--idle-soft);color:var(--idle);}
+  .modtag { font-family:var(--mono); font-size:10px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.06em; }
+  .chevron { color:var(--ink-3); transition:transform .18s; font-size:12px; }
+  .case[open] .chevron { transform:rotate(90deg); }
+
+  .case-body { padding:4px 16px 18px; border-top:1px solid var(--border); display:grid; gap:16px; }
+  @media (min-width:760px) { .case-body { grid-template-columns:1.3fr 1fr; } }
+  .spec { display:grid; gap:12px; align-content:start; }
+  .spec h4 { font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-3); margin-bottom:5px; font-weight:700; }
+  .spec ol,.spec ul { margin:0; padding-left:18px; display:grid; gap:3px; }
+  .spec li { font-size:13px; color:var(--ink); }
+  .spec .kv { font-size:12.5px; color:var(--ink-2); }
+  .spec .kv b { color:var(--ink); font-weight:600; }
+  .warnline { background:var(--warn-soft); color:var(--warn); font-size:12px; padding:8px 10px; border-radius:8px; font-weight:550; }
+  .expected { background:var(--surface-2); border-radius:8px; padding:10px 12px; }
+  code { font-family:var(--mono); font-size:12px; background:var(--surface-2); padding:1px 5px; border-radius:4px; }
+
+  .runpanel { background:var(--surface-2); border-radius:var(--radius-sm); padding:14px; display:grid; gap:12px; align-content:start; }
+  .runpanel h4 { font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-3); font-weight:700; margin:0; }
+  .rp-block { display:grid; gap:8px; align-content:start; }
+  .statusset { display:flex; gap:6px; flex-wrap:wrap; }
+  .statusset button { font-size:12px; padding:6px 10px; border-radius:7px; }
+  .statusset button[aria-pressed="true"].s-pass{background:var(--ok);color:#fff;border-color:var(--ok);}
+  .statusset button[aria-pressed="true"].s-fail{background:var(--bad);color:#fff;border-color:var(--bad);}
+  .statusset button[aria-pressed="true"].s-blocked{background:var(--warn);color:#fff;border-color:var(--warn);}
+  .statusset button[aria-pressed="true"].s-na{background:var(--info);color:#fff;border-color:var(--info);}
+  .statusset button[aria-pressed="true"].s-pending{background:var(--idle);color:#fff;border-color:var(--idle);}
+  .ev-note { width:100%; resize:vertical; min-height:40px; padding:8px 10px; border-radius:8px; border:1px solid var(--border-strong); background:var(--surface); color:var(--ink); font-family:var(--sans); font-size:13px; }
+  .ev-actions { display:flex; gap:6px; flex-wrap:wrap; }
+  .ev-actions button { font-size:12px; padding:6px 10px; }
+  .evidence { display:grid; gap:8px; }
+  .ev-item { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:9px 10px; display:grid; gap:6px; }
+  .ev-item .ev-meta { display:flex; align-items:center; gap:8px; }
+  .ev-item time { font-family:var(--mono); font-size:11px; color:var(--ink-2); font-variant-numeric:tabular-nums; }
+  .ev-item .who { font-size:11px; color:var(--ink-3); }
+  .ev-item .ev-del { margin-left:auto; padding:2px 7px; font-size:11px; }
+  .ev-item p { margin:0; font-size:13px; white-space:pre-wrap; }
+  .ev-item img { max-width:100%; border-radius:6px; border:1px solid var(--border); cursor:zoom-in; }
+  .updated { font-size:11px; color:var(--ink-3); font-family:var(--mono); }
+  .empty-ev { font-size:12px; color:var(--ink-3); font-style:italic; }
+  .no-results { text-align:center; padding:40px; color:var(--ink-3); }
+
+  .lightbox { position:fixed; inset:0; background:rgba(0,0,0,.82); display:none; align-items:center; justify-content:center; z-index:90; padding:30px; }
+  .lightbox.on { display:flex; }
+  .lightbox img { max-width:100%; max-height:100%; border-radius:8px; }
+
+  .toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:var(--ground); padding:10px 18px; border-radius:10px; font-size:13px; font-weight:550; opacity:0; pointer-events:none; transition:opacity .2s,transform .2s; z-index:95; box-shadow:var(--shadow); }
+  .toast.on { opacity:1; transform:translateX(-50%) translateY(0); }
+
+  .mini { padding:2px 7px; font-size:12px; border-radius:6px; line-height:1; }
+  #editmode[aria-pressed="true"] { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+
+  .modal { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:flex-start; justify-content:center; z-index:92; padding:40px 16px; overflow:auto; }
+  .modal.on { display:flex; }
+  .modal-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:640px; padding:22px; }
+  .modal-card h3 { font-size:17px; margin-bottom:16px; }
+  .form-grid { display:grid; gap:14px; }
+  .form-grid label { display:grid; gap:5px; font-size:12px; font-weight:600; color:var(--ink-2); }
+  .form-grid input[type=text], .form-grid textarea, .form-grid select {
+    font-family:var(--sans); font-size:13px; padding:8px 10px; border-radius:8px; border:1px solid var(--border-strong);
+    background:var(--surface); color:var(--ink); width:100%; }
+  .form-grid textarea { resize:vertical; min-height:60px; }
+  .form-grid input:read-only { opacity:.6; cursor:not-allowed; }
+  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:560px) { .form-row { grid-template-columns:1fr; } }
+  .checks { display:flex; gap:14px; flex-wrap:wrap; align-items:center; }
+  .checks label { flex-direction:row; align-items:center; gap:6px; font-weight:550; color:var(--ink); }
+  .hint2 { font-size:11px; color:var(--ink-3); font-weight:400; }
+  .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:20px; }
+  .modal-actions .del { margin-right:auto; color:var(--bad); border-color:var(--bad); }
+
+  @media (prefers-reduced-motion:reduce) { * { transition:none !important; animation:none !important; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="top-inner">
+      <div class="brand">
+        <i class="dot" aria-hidden="true"></i>
+        <b>FullCommerce · Smoke Cockpit</b>
+        <span id="runtag">—</span>
+      </div>
+      <div class="ctrls">
+        <span class="conn wait" id="conn"><i></i><span id="conn-txt">…</span></span>
+        <button id="whoami" class="ghost" title="Tu nombre para firmar la evidencia">Soy…</button>
+        <button id="editmode" class="ghost" title="Editar el catálogo de casos (Agregar / Editar / Borrar)">Editar casos</button>
+        <button id="newcase" title="Agregar un caso nuevo" hidden>+ Caso</button>
+        <button id="newrun" title="Archiva el set actual y arranca uno nuevo con todo en Pendiente">Nuevo set</button>
+        <button id="export">Exportar</button>
+        <button id="import">Importar</button>
+        <button id="connect" class="ghost" title="Configurar conexión Supabase">Conexión</button>
+        <button id="theme" class="ghost" aria-label="Cambiar tema" title="Tema claro/oscuro">◐</button>
+        <input type="file" id="importfile" accept="application/json" hidden />
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="summary-grid">
+    <section class="card" id="dev-card">
+      <div class="card-head">
+        <h2>Estado del desarrollo</h2>
+        <div class="headline"><span class="big" id="dev-pct">—</span><span class="cap">funcional end-to-end (implementado con frontend)</span></div>
+      </div>
+      <div class="segbar" id="dev-bar"></div>
+      <div class="legend" id="dev-legend"></div>
+    </section>
+    <section class="card" id="run-card">
+      <div class="card-head">
+        <h2>Avance del set de pruebas</h2>
+        <div class="headline"><span class="big" id="run-pct">—</span><span class="cap">cobertura ejecutada (probado + no testeable)</span></div>
+      </div>
+      <div class="segbar" id="run-bar"></div>
+      <div class="legend" id="run-legend"></div>
+    </section>
+  </div>
+
+  <div class="filterbar">
+    <div class="chips" id="group-chips"></div>
+    <div class="search"><input id="search" type="search" placeholder="Buscar por id, título, feature, endpoint…" /></div>
+  </div>
+  <div class="active-filter" id="active-filter" hidden></div>
+
+  <div id="list"></div>
+</main>
+
+<div class="modal" id="editor">
+  <div class="modal-card">
+    <h3 id="editor-title">Nuevo caso</h3>
+    <form id="case-form" class="form-grid">
+      <div class="form-row">
+        <label>ID <span class="hint2">único, ej. MF-SELLERS-04</span>
+          <input type="text" name="id" required autocomplete="off" /></label>
+        <label>Módulo
+          <input type="text" name="mod" placeholder="MF / API / Worker" autocomplete="off" /></label>
+      </div>
+      <label>Título
+        <input type="text" name="title" required autocomplete="off" /></label>
+      <div class="form-row">
+        <label>Estado de implementación
+          <select name="impl">
+            <option value="impl">Implementado</option>
+            <option value="nofront">Sin frontend</option>
+            <option value="mock">Mockeado</option>
+            <option value="stub">No implementado</option>
+          </select></label>
+        <label>Grupo <span class="hint2">un solo tipo</span>
+          <span class="checks">
+            <label><input type="radio" name="g" value="corp" /> Corporativo</label>
+            <label><input type="radio" name="g" value="pyme" /> PyME</label>
+            <label><input type="radio" name="g" value="otros" /> Otros</label>
+          </span></label>
+      </div>
+      <label>Feature
+        <input type="text" name="feat" autocomplete="off" /></label>
+      <label>Precondiciones
+        <input type="text" name="pre" autocomplete="off" /></label>
+      <label>Datos de prueba
+        <input type="text" name="data" autocomplete="off" /></label>
+      <label>Pasos <span class="hint2">uno por línea</span>
+        <textarea name="steps"></textarea></label>
+      <label>Resultado esperado <span class="hint2">uno por línea</span>
+        <textarea name="exp"></textarea></label>
+      <label>Advertencia <span class="hint2">opcional — mock, branch, stub…</span>
+        <input type="text" name="warn" autocomplete="off" /></label>
+      <span class="checks"><label><input type="checkbox" name="flag" /> Destacar (caso estrella ★)</label></span>
+      <div class="modal-actions">
+        <button type="button" class="del" id="editor-del" hidden>Borrar</button>
+        <button type="button" id="editor-cancel">Cancelar</button>
+        <button type="submit" class="primary">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox"><img id="lightbox-img" alt="Evidencia ampliada" /></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================ DATA ============================================================ */
+const GROUPS = {
+  corp:  { label:"Corporativo", meta:"corpo shell · pruebacorpo24 / aecom-test @yopmail.com" },
+  pyme:  { label:"PyME", meta:"pyme shell · fullcommerce@yopmail.com" },
+  otros: { label:"Otros — sin frontend", meta:"API directa (Postman/curl) · Worker (.NET)" }
+};
+/* Cada caso pertenece a un único grupo. */
+function bucketOf(c) {
+  if (c.g.includes("corp")) return "corp";
+  if (c.g.includes("pyme")) return "pyme";
+  return "otros";
+}
+const IMPL = {
+  impl:{label:"Implementado",cls:"impl"}, mock:{label:"Mockeado",cls:"mock"},
+  stub:{label:"No implementado",cls:"stub"}, nofront:{label:"Sin frontend",cls:"nofront"}
+};
+const RUN = {
+  pending:{label:"Pendiente",cls:"pending"}, pass:{label:"OK",cls:"pass"}, fail:{label:"Falla",cls:"fail"},
+  blocked:{label:"Bloqueado",cls:"blocked"}, na:{label:"No testeable",cls:"na"}
+};
+
+/* El catálogo vive en Supabase (tabla cases). Seed inicial: seed.sql */
+let CASES = [];
+let editMode = false;
+
+/* ============================================================ CONFIG / MODE ============================================================ */
+function getConfig() {
+  try { const s = JSON.parse(localStorage.getItem("fc-smoke-cfg") || "null"); if (s && s.url && s.anonKey) return s; } catch(e){}
+  const w = window.SMOKE_CONFIG || {};
+  return (w.url && w.anonKey) ? w : {};
+}
+const CFG = getConfig();
+const CLOUD = !!(CFG.url && CFG.anonKey && window.supabase);
+let sb = CLOUD ? window.supabase.createClient(CFG.url, CFG.anonKey) : null;
+let tester = "";
+try { tester = localStorage.getItem("fc-smoke-tester") || ""; } catch(e){}
+
+/* ============================================================ STATE ============================================================ */
+const LS_KEY = "fc-smoke-cockpit-v1";
+const p2 = n => String(n).padStart(2,"0");
+function nowStamp() { const d = new Date(); return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`; }
+function fmtIso(iso) { if (!iso) return null; const d = new Date(iso); return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`; }
+function freshRun() { return { runId:"run-"+Date.now().toString(36), startedAt:nowStamp(), run:{} }; }
+function loadLocal() { try { const raw = localStorage.getItem(LS_KEY); if (raw) return JSON.parse(raw); } catch(e){} return freshRun(); }
+let state = loadLocal();
+function persistLocal() { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch(e){ toast("Almacenamiento local lleno"); } }
+function caseState(id) { if (!state.run[id]) state.run[id] = { status:"pending", evidence:[], updatedAt:null }; return state.run[id]; }
+
+let filters = { group:"all", impl:null, run:null, q:"" };
+
+/* ============================================================ HELPERS ============================================================ */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+const pct = (n,d) => d ? Math.round(n/d*100) : 0;
+let toastTimer;
+function toast(msg) { const t=$("#toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("on"),2400); }
+function setConn(kind, txt) { const c=$("#conn"); c.className="conn "+kind; $("#conn-txt").textContent=txt; }
+const fileToDataURL = file => new Promise(res => { const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(file); });
+
+/* ============================================================ CLOUD LAYER ============================================================ */
+async function cloudInit() {
+  setConn("wait","conectando…");
+  await loadCases();
+  let run;
+  const { data: runs, error } = await sb.from("runs").select("*").eq("is_active", true).order("started_at",{ascending:false}).limit(1);
+  if (error) { setConn("err","error de conexión"); toast("No se pudo conectar a Supabase — revisá Conexión"); return; }
+  run = runs && runs[0];
+  if (!run) {
+    run = { id:"run-"+Date.now().toString(36), name:"Set "+nowStamp(), started_at:new Date().toISOString(), is_active:true };
+    await sb.from("runs").insert(run);
+  }
+  state.runId = run.id;
+  state.startedAt = run.name || fmtIso(run.started_at);
+  const { data: rows } = await sb.from("case_runs").select("*").eq("run_id", run.id);
+  state.run = {};
+  (rows||[]).forEach(r => state.run[r.case_id] = { status:r.status, evidence:r.evidence||[], updatedAt:fmtIso(r.updated_at), updatedBy:r.updated_by });
+  subscribeRealtime(run.id);
+  setConn("live","en vivo");
+  renderAll();
+}
+async function cloudUpsert(id) {
+  const cs = state.run[id];
+  const { error } = await sb.from("case_runs").upsert({
+    run_id: state.runId, case_id: id, status: cs.status, evidence: cs.evidence,
+    updated_at: new Date().toISOString(), updated_by: tester || null
+  }, { onConflict: "run_id,case_id" });
+  if (error) toast("No se pudo guardar en la nube");
+}
+let channel = null;
+function subscribeRealtime(runId) {
+  if (channel) sb.removeChannel(channel);
+  channel = sb.channel("cockpit-"+runId)
+    .on("postgres_changes", { event:"*", schema:"public", table:"case_runs", filter:"run_id=eq."+runId }, payload => {
+      const r = payload.new; if (!r || !r.case_id) return;
+      state.run[r.case_id] = { status:r.status, evidence:r.evidence||[], updatedAt:fmtIso(r.updated_at), updatedBy:r.updated_by };
+      const card = document.querySelector(`.case[data-id="${r.case_id}"]`);
+      if (card) rebuildCard(r.case_id);
+      renderSummaries();
+    })
+    .on("postgres_changes", { event:"*", schema:"public", table:"runs" }, payload => {
+      if (payload.new && payload.new.is_active && payload.new.id !== state.runId) { toast("Se inició un nuevo set"); cloudInit(); }
+    })
+    .subscribe();
+}
+
+/* unified save */
+function save(id) { persistLocal(); if (CLOUD) cloudUpsert(id); }
+
+/* ============================================================ CATALOG (cases CRUD) ============================================================ */
+function caseById(id) { return CASES.find(c => c.id === id); }
+function caseFromRow(r) {
+  return { id:r.id, g:r.groups||[], mod:r.module||"", impl:r.impl||"impl", title:r.title||"",
+           feat:r.feature||"", pre:r.precond||"", data:r.data||"", steps:r.steps||[], exp:r.expected||[],
+           warn:r.warn||"", flag:!!r.flag, sort: r.sort==null ? 0 : r.sort };
+}
+function rowFromCase(c, i) {
+  return { id:c.id, groups:c.g||[], module:c.mod||null, impl:c.impl||"impl", title:c.title||"",
+           feature:c.feat||null, precond:c.pre||null, data:c.data||null, steps:c.steps||[], expected:c.exp||[],
+           warn:c.warn||null, flag:!!c.flag, sort: c.sort==null ? (i||0) : c.sort,
+           updated_at:new Date().toISOString(), updated_by: tester||null };
+}
+function loadCasesLocal() { try { const raw = localStorage.getItem("fc-smoke-cases"); if (raw) return JSON.parse(raw); } catch(e){} return []; }
+function persistCasesLocal() { try { localStorage.setItem("fc-smoke-cases", JSON.stringify(CASES)); } catch(e){} }
+
+let casesChannel = null;
+async function loadCases() {
+  const { data, error } = await sb.from("cases").select("*").order("sort", { ascending:true });
+  if (error) { toast("No se pudieron cargar los casos"); return; }
+  if (!data || !data.length) {
+    CASES = [];
+    toast("Catálogo vacío — corré seed.sql en Supabase");
+  } else {
+    CASES = data.map(caseFromRow);
+  }
+  if (!casesChannel) {
+    casesChannel = sb.channel("cases")
+      .on("postgres_changes", { event:"*", schema:"public", table:"cases" }, async () => { await reloadCatalog(); })
+      .subscribe();
+  }
+}
+async function reloadCatalog() {
+  const { data } = await sb.from("cases").select("*").order("sort", { ascending:true });
+  if (data) { CASES = data.map(caseFromRow); renderAll(); }
+}
+async function saveCaseCloud(c) { const { error } = await sb.from("cases").upsert(rowFromCase(c, c.sort), { onConflict:"id" }); if (error) toast("No se pudo guardar el caso"); }
+async function deleteCaseCloud(id) { const { error } = await sb.from("cases").delete().eq("id", id); if (error) toast("No se pudo borrar el caso"); }
+
+function upsertCase(c, isNew) {
+  if (isNew) {
+    c.sort = CASES.reduce((m,x)=>Math.max(m, x.sort||0), 0) + 1;
+    CASES.push(c);
+  } else {
+    const idx = CASES.findIndex(x => x.id === c.id);
+    if (idx >= 0) { c.sort = CASES[idx].sort; CASES[idx] = c; } else CASES.push(c);
+  }
+  if (CLOUD) saveCaseCloud(c); else persistCasesLocal();
+  renderAll();
+}
+function removeCase(id) {
+  CASES = CASES.filter(c => c.id !== id);
+  if (CLOUD) deleteCaseCloud(id); else persistCasesLocal();
+  renderAll();
+}
+
+/* ============================================================ SUMMARY ============================================================ */
+function scopedCases() { return CASES.filter(c => filters.group==="all" || bucketOf(c)===filters.group); }
+function renderSummaries() {
+  const cs = scopedCases();
+  const dc = { impl:0,mock:0,stub:0,nofront:0 }; cs.forEach(c => dc[c.impl]++); const dtot = cs.length;
+  $("#dev-pct").textContent = pct(dc.impl,dtot)+"%";
+  $("#dev-bar").innerHTML = ["impl","nofront","mock","stub"].map(k => dc[k]?`<span class="c-${k}" style="width:${dc[k]/dtot*100}%"></span>`:"").join("");
+  $("#dev-legend").innerHTML = ["impl","nofront","mock","stub"].map(k =>
+    `<button data-implfilter="${k}" aria-pressed="${filters.impl===k}"><i class="swatch c-${k}"></i>${IMPL[k].label} <b>${dc[k]}</b> · ${pct(dc[k],dtot)}%</button>`).join("");
+
+  const rc = { pending:0,pass:0,fail:0,blocked:0,na:0 }; cs.forEach(c => rc[caseState(c.id).status]++); const rtot = cs.length;
+  $("#run-pct").textContent = pct(rtot-rc.pending,rtot)+"%";
+  $("#run-bar").innerHTML = ["pass","fail","blocked","na","pending"].map(k => rc[k]?`<span class="c-${k}" style="width:${rc[k]/rtot*100}%"></span>`:"").join("");
+  $("#run-legend").innerHTML = ["pass","fail","blocked","na","pending"].map(k =>
+    `<button data-runfilter="${k}" aria-pressed="${filters.run===k}"><i class="swatch c-${k}"></i>${RUN[k].label} <b>${rc[k]}</b> · ${pct(rc[k],rtot)}%</button>`).join("");
+
+  $("#runtag").textContent = `${state.startedAt||"—"} · ${state.runId||""}`;
+}
+
+/* ============================================================ FILTER BAR ============================================================ */
+function renderChips() {
+  const order = ["corp","pyme","otros"];
+  const counts = {}; order.forEach(k => counts[k]=0);
+  CASES.forEach(c => { const b=bucketOf(c); if (counts[b]!=null) counts[b]++; });
+  const opts = [["all","Todos",null]];
+  order.forEach(k => { if (counts[k]>0) opts.push([k, GROUPS[k].label, counts[k]]); });
+  $("#group-chips").innerHTML = opts.map(([k,l,n]) => `<button class="chip" data-group="${k}" aria-pressed="${filters.group===k}">${l}${n!=null?` <span style="opacity:.55">${n}</span>`:""}</button>`).join("");
+  const af = $("#active-filter"); const parts = [];
+  if (filters.impl) parts.push(`desarrollo: <b>${IMPL[filters.impl].label}</b>`);
+  if (filters.run) parts.push(`prueba: <b>${RUN[filters.run].label}</b>`);
+  if (parts.length) { af.hidden=false; af.innerHTML = `Filtro activo — ${parts.join(" · ")} <button id="clearfilter">Limpiar</button>`; }
+  else af.hidden = true;
+}
+
+/* ============================================================ LIST ============================================================ */
+function matches(c) {
+  if (filters.group!=="all" && bucketOf(c)!==filters.group) return false;
+  if (filters.impl && c.impl!==filters.impl) return false;
+  if (filters.run && caseState(c.id).status!==filters.run) return false;
+  if (filters.q) { const hay=(c.id+" "+c.title+" "+c.feat+" "+c.data+" "+c.mod).toLowerCase(); if (!hay.includes(filters.q.toLowerCase())) return false; }
+  return true;
+}
+function caseCardHTML(c) {
+  const st = caseState(c.id); const im = IMPL[c.impl];
+  const listSteps = c.steps.map(s=>`<li>${esc(s)}</li>`).join("");
+  const listExp = c.exp.map(s=>`<li>${esc(s)}</li>`).join("");
+  const evHTML = st.evidence.length
+    ? st.evidence.map((e,i)=>`<div class="ev-item"><div class="ev-meta"><time>${esc(e.time||"")}</time>${e.by?`<span class="who">· ${esc(e.by)}</span>`:""}<button class="ev-del" data-del="${i}" data-id="${c.id}" title="Borrar evidencia">✕</button></div>${e.text?`<p>${esc(e.text)}</p>`:""}${e.img?`<img src="${esc(e.img)}" alt="Evidencia" data-zoom />`:""}</div>`).join("")
+    : `<div class="empty-ev">Sin evidencia registrada.</div>`;
+  const statusBtns = Object.entries(RUN).map(([k,v])=>`<button class="s-${k}" data-setstatus="${k}" data-id="${c.id}" aria-pressed="${st.status===k}">${v.label}</button>`).join("");
+  return `<details class="case ${c.flag?"flag":""}" data-id="${c.id}">
+    <summary class="case-row">
+      <span class="id">${esc(c.id)}</span>
+      <span class="case-title">${c.flag?'<span class="star">★</span>':""}${esc(c.title)}</span>
+      <span class="modtag">${esc(c.mod)}</span>
+      <span class="badge b-${im.cls}"><i class="swatch c-${im.cls}"></i>${im.label}</span>
+      <span class="run-pill p-${st.status}">${RUN[st.status].label}</span>
+      ${editMode?`<button class="mini" data-editcase="${c.id}" title="Editar caso">✎</button><button class="mini" data-delcase="${c.id}" title="Borrar caso">🗑</button>`:""}
+      <span class="chevron" aria-hidden="true">▶</span>
+    </summary>
+    <div class="case-body">
+      <div class="spec">
+        <div class="kv"><b>Feature:</b> ${esc(c.feat)}</div>
+        <div class="kv"><b>Precondiciones:</b> ${esc(c.pre)}</div>
+        <div class="kv"><b>Datos:</b> ${esc(c.data)}</div>
+        <div><h4>Pasos</h4><ol>${listSteps}</ol></div>
+        <div><h4>Resultado esperado</h4><div class="expected"><ul>${listExp}</ul></div></div>
+        ${c.warn?`<div class="warnline">⚠ ${esc(c.warn)}</div>`:""}
+      </div>
+      <div class="runpanel">
+        <div class="rp-block"><h4>Resultado de la ejecución</h4><div class="statusset">${statusBtns}</div></div>
+        <div class="rp-block"><h4>Evidencia</h4>
+          <textarea class="ev-note" data-note="${c.id}" placeholder="Nota de la prueba (qué se observó)…"></textarea>
+          <div class="ev-actions">
+            <button data-addnote="${c.id}">+ Nota con hora</button>
+            <button data-addimg="${c.id}">+ Captura</button>
+            <input type="file" accept="image/*" data-imgfile="${c.id}" hidden />
+          </div>
+          <div class="evidence">${evHTML}</div>
+        </div>
+        ${st.updatedAt?`<div class="updated">Última actualización: ${esc(st.updatedAt)}${st.updatedBy?" · "+esc(st.updatedBy):""}</div>`:""}
+      </div>
+    </div>
+  </details>`;
+}
+function renderList() {
+  const container = $("#list");
+  const visible = CASES.filter(matches);
+  if (!visible.length) { container.innerHTML = `<div class="no-results">Ningún caso coincide con el filtro.</div>`; return; }
+  let html = "";
+  for (const gk of ["corp","pyme","otros"]) {
+    const inGroup = visible.filter(c => bucketOf(c)===gk);
+    if (!inGroup.length) continue;
+    html += `<div class="group-head"><h3>${GROUPS[gk].label}</h3><span class="meta">${esc(GROUPS[gk].meta)}</span><span class="count">${inGroup.length} caso${inGroup.length!==1?"s":""}</span></div>`;
+    html += inGroup.map(caseCardHTML).join("");
+  }
+  container.innerHTML = html || `<div class="no-results">Ningún caso coincide con el filtro.</div>`;
+}
+function renderAll() { renderSummaries(); renderChips(); renderList(); }
+function rebuildCard(id) {
+  const card = document.querySelector(`.case[data-id="${id}"]`); if (!card) return;
+  const wasOpen = card.open;
+  const frag = document.createRange().createContextualFragment(caseCardHTML(CASES.find(c=>c.id===id)));
+  const nc = frag.querySelector(".case"); nc.open = wasOpen; card.replaceWith(nc);
+}
+
+/* ============================================================ EVENTS ============================================================ */
+document.addEventListener("click", e => {
+  const t = e.target.closest("button"); if (!t) return;
+
+  if (t.dataset.group) { filters.group=t.dataset.group; renderAll(); return; }
+  if (t.dataset.implfilter) { filters.impl = filters.impl===t.dataset.implfilter?null:t.dataset.implfilter; renderAll(); return; }
+  if (t.dataset.runfilter) { filters.run = filters.run===t.dataset.runfilter?null:t.dataset.runfilter; renderAll(); return; }
+  if (t.id==="clearfilter") { filters.impl=null; filters.run=null; renderAll(); return; }
+
+  if (t.dataset.setstatus) {
+    const cs = caseState(t.dataset.id); cs.status=t.dataset.setstatus; cs.updatedAt=nowStamp(); cs.updatedBy=tester||cs.updatedBy;
+    save(t.dataset.id); renderSummaries();
+    const card = document.querySelector(`.case[data-id="${t.dataset.id}"]`);
+    card.querySelectorAll(".statusset button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.setstatus===cs.status));
+    const pill = card.querySelector(".run-pill"); pill.className="run-pill p-"+cs.status; pill.textContent=RUN[cs.status].label;
+    let up = card.querySelector(".updated"); if (!up){ up=document.createElement("div"); up.className="updated"; card.querySelector(".runpanel").appendChild(up); }
+    up.textContent = "Última actualización: "+cs.updatedAt+(tester?" · "+tester:""); return;
+  }
+  if (t.dataset.addnote) {
+    const id=t.dataset.addnote; const ta=document.querySelector(`textarea[data-note="${id}"]`); const txt=ta.value.trim();
+    if (!txt) { toast("Escribí una nota primero"); ta.focus(); return; }
+    const cs=caseState(id); cs.evidence.push({ time:nowStamp(), text:txt, by:tester||undefined }); cs.updatedAt=nowStamp(); cs.updatedBy=tester||cs.updatedBy;
+    ta.value=""; save(id); rebuildCard(id); renderSummaries(); return;
+  }
+  if (t.dataset.addimg) { document.querySelector(`input[data-imgfile="${t.dataset.addimg}"]`).click(); return; }
+  if (t.dataset.del !== undefined) {
+    const cs=caseState(t.dataset.id); cs.evidence.splice(Number(t.dataset.del),1); cs.updatedAt=nowStamp();
+    save(t.dataset.id); rebuildCard(t.dataset.id); return;
+  }
+
+  if (t.dataset.editcase) { e.preventDefault(); openEditor(caseById(t.dataset.editcase)); return; }
+  if (t.dataset.delcase) { e.preventDefault(); const c=caseById(t.dataset.delcase); if (c && confirm(`¿Borrar el caso ${c.id}?`)) removeCase(c.id); return; }
+  if (t.id==="editmode") { editMode=!editMode; t.setAttribute("aria-pressed", editMode); $("#newcase").hidden=!editMode; renderList(); toast(editMode?"Modo edición: podés Agregar / Editar / Borrar casos":"Modo edición off"); return; }
+  if (t.id==="newcase") { openEditor(null); return; }
+  if (t.id==="editor-cancel") { closeEditor(); return; }
+  if (t.id==="editor-del") { if (editingId && confirm(`¿Borrar el caso ${editingId}?`)) { removeCase(editingId); closeEditor(); } return; }
+
+  if (t.id==="newrun") newRun();
+  if (t.id==="export") exportRun();
+  if (t.id==="import") $("#importfile").click();
+  if (t.id==="connect") configPrompt();
+  if (t.id==="whoami") whoamiPrompt();
+  if (t.id==="theme") toggleTheme();
+});
+
+document.addEventListener("change", e => {
+  const inp = e.target;
+  if (inp.dataset.imgfile) {
+    const file = inp.files[0]; if (!file) return; const id = inp.dataset.imgfile;
+    const ta = document.querySelector(`textarea[data-note="${id}"]`); const note = ta ? ta.value.trim() : "";
+    addImage(id, file, note).then(()=>{ if (ta) ta.value=""; inp.value=""; });
+  }
+  if (inp.id==="importfile") {
+    const file=inp.files[0]; if (!file) return; const rd=new FileReader();
+    rd.onload=()=>{ try { const obj=JSON.parse(rd.result); if(!obj.run) throw 0; state=obj; persistLocal(); renderAll(); toast("Set importado"); } catch(err){ toast("Archivo inválido"); } inp.value=""; };
+    rd.readAsText(file);
+  }
+});
+
+document.addEventListener("paste", e => {
+  const ta = document.activeElement;
+  if (!ta || ta.tagName!=="TEXTAREA" || !ta.dataset.note) return;
+  const item = [...(e.clipboardData&&e.clipboardData.items||[])].find(i=>i.type.startsWith("image/"));
+  if (!item) return; e.preventDefault();
+  addImage(ta.dataset.note, item.getAsFile(), ta.value.trim()).then(()=>{ ta.value=""; toast("Captura pegada"); });
+});
+
+document.addEventListener("click", e => {
+  const img = e.target.closest("img[data-zoom]");
+  if (img) { $("#lightbox-img").src=img.src; $("#lightbox").classList.add("on"); }
+  if (e.target.id==="lightbox"||e.target.id==="lightbox-img") $("#lightbox").classList.remove("on");
+});
+$("#search").addEventListener("input", e => { filters.q=e.target.value; renderList(); });
+
+async function addImage(id, file, note) {
+  let img;
+  if (CLOUD) {
+    const safe = (file.name||"captura.png").replace(/[^a-zA-Z0-9._-]/g,"_");
+    const path = `${state.runId}/${id}/${Date.now()}-${safe}`;
+    const { error } = await sb.storage.from("evidence").upload(path, file, { upsert:false });
+    if (error) { toast("Error subiendo la captura"); return; }
+    img = sb.storage.from("evidence").getPublicUrl(path).data.publicUrl;
+  } else {
+    img = await fileToDataURL(file);
+  }
+  const cs = caseState(id);
+  cs.evidence.push({ time:nowStamp(), text:note||"", img, by:tester||undefined });
+  cs.updatedAt = nowStamp(); cs.updatedBy = tester||cs.updatedBy;
+  save(id); rebuildCard(id); renderSummaries();
+}
+
+/* ============================================================ RUN CONTROLS ============================================================ */
+function exportRun() {
+  const blob = new Blob([JSON.stringify(state,null,2)], { type:"application/json" });
+  const a = document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`smoke-${state.runId}.json`; a.click(); URL.revokeObjectURL(a.href);
+  toast("Set exportado");
+}
+async function newRun() {
+  const anyData = Object.values(state.run).some(r => r.status!=="pending" || (r.evidence&&r.evidence.length));
+  if (anyData) {
+    const doExport = confirm("Vas a archivar el set actual y empezar uno nuevo (todo vuelve a Pendiente).\n\n¿Exportar antes el set actual para guardar la evidencia?");
+    if (doExport) exportRun();
+  }
+  if (CLOUD) {
+    await sb.from("runs").update({ is_active:false }).eq("is_active", true);
+    const run = { id:"run-"+Date.now().toString(36), name:"Set "+nowStamp(), started_at:new Date().toISOString(), is_active:true };
+    await sb.from("runs").insert(run);
+    filters.impl=null; filters.run=null;
+    await cloudInit();
+  } else {
+    state = freshRun(); persistLocal(); filters.impl=null; filters.run=null; renderAll();
+  }
+  toast("Nuevo set iniciado");
+}
+
+/* ============================================================ CONFIG / IDENTITY ============================================================ */
+function configPrompt() {
+  const cur = getConfig();
+  const url = prompt("URL del proyecto Supabase (https://xxxx.supabase.co):", cur.url||"");
+  if (url===null) return;
+  const key = prompt("Clave anon / public:", cur.anonKey||"");
+  if (key===null) return;
+  try { localStorage.setItem("fc-smoke-cfg", JSON.stringify({ url:url.trim(), anonKey:key.trim() })); } catch(e){}
+  toast("Conexión guardada — recargando…"); setTimeout(()=>location.reload(), 700);
+}
+function whoamiPrompt() {
+  const v = prompt("Tu nombre (firma la evidencia y los estados):", tester||"");
+  if (v===null) return;
+  tester = v.trim(); try { localStorage.setItem("fc-smoke-tester", tester); } catch(e){}
+  $("#whoami").textContent = tester ? "Soy: "+tester : "Soy…";
+  toast(tester?("Hola, "+tester):"Nombre borrado");
+}
+
+/* ============================================================ CASE EDITOR ============================================================ */
+let editingId = null;
+function openEditor(c) {
+  const f = document.getElementById("case-form"); f.reset();
+  const el = n => f.elements[n];
+  editingId = c ? c.id : null;
+  document.getElementById("editor-title").textContent = c ? "Editar caso" : "Nuevo caso";
+  document.getElementById("editor-del").hidden = !c;
+  el("id").readOnly = !!c;
+  if (c) {
+    el("id").value=c.id; el("mod").value=c.mod||""; el("title").value=c.title||"";
+    el("impl").value=c.impl||"impl"; el("feat").value=c.feat||""; el("pre").value=c.pre||"";
+    el("data").value=c.data||""; el("steps").value=(c.steps||[]).join("\n");
+    el("exp").value=(c.exp||[]).join("\n"); el("warn").value=c.warn||""; el("flag").checked=!!c.flag;
+    f.querySelectorAll('input[name="g"]').forEach(cb => cb.checked=(c.g||[]).includes(cb.value));
+  }
+  document.getElementById("editor").classList.add("on");
+  setTimeout(()=>el("id").focus(), 50);
+}
+function closeEditor() { document.getElementById("editor").classList.remove("on"); editingId=null; }
+function parseLines(v) { return v.split("\n").map(s=>s.trim()).filter(Boolean); }
+function submitEditor(e) {
+  e.preventDefault();
+  const f = e.target; const el = n => f.elements[n];
+  const id = el("id").value.trim();
+  if (!id) { toast("El ID es obligatorio"); return; }
+  const isNew = !editingId;
+  if (isNew && caseById(id)) { toast("Ya existe un caso con ese ID"); return; }
+  const groups = [...f.querySelectorAll('input[name="g"]:checked')].map(cb=>cb.value);
+  const c = {
+    id, mod:el("mod").value.trim(), title:el("title").value.trim(), impl:el("impl").value,
+    g: groups.length?groups:["otros"], feat:el("feat").value.trim(), pre:el("pre").value.trim(),
+    data:el("data").value.trim(), steps:parseLines(el("steps").value), exp:parseLines(el("exp").value),
+    warn:el("warn").value.trim(), flag:el("flag").checked
+  };
+  upsertCase(c, isNew); closeEditor(); toast(isNew?"Caso agregado":"Caso actualizado");
+}
+document.getElementById("case-form").addEventListener("submit", submitEditor);
+document.getElementById("editor").addEventListener("click", e => { if (e.target.id==="editor") closeEditor(); });
+
+/* ============================================================ THEME ============================================================ */
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute("data-theme") || (matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");
+  const next = cur==="dark"?"light":"dark";
+  document.documentElement.setAttribute("data-theme", next);
+  try { localStorage.setItem("fc-smoke-theme", next); } catch(e){}
+}
+(function initTheme(){ try { const s=localStorage.getItem("fc-smoke-theme"); if (s) document.documentElement.setAttribute("data-theme", s); } catch(e){} })();
+
+/* ============================================================ INIT ============================================================ */
+$("#whoami").textContent = tester ? "Soy: "+tester : "Soy…";
+if (CLOUD) { renderChips(); renderSummaries(); cloudInit(); }
+else {
+  setConn("local", window.SMOKE_CONFIG && !window.supabase ? "local (SDK no cargó)" : "local (sin sincronizar)");
+  CASES = loadCasesLocal();
+  renderAll();
+}
+</script>
+</body>
+</html>
